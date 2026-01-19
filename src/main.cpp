@@ -1,41 +1,28 @@
 #include <Arduino.h>
-#include "config.h"
+#include <Adafruit_TinyUSB.h>
+
+unsigned long counter = 0;
 
 void setup() {
-    Serial.begin(SERIAL_BAUD_RATE);
+    Serial.begin(115200);
+    // SuperMini boards often need extra time for USB serial
+    delay(3000);
     
-    // Wait up to 10 seconds for serial to connect
-    unsigned long startTime = millis();
-    while (!Serial && (millis() - startTime < 10000)) {
-        delay(100);
-    }
-    
-    delay(1000);  // Extra delay for stability
-    
-    Serial.println("\n\n\n");  // Send newlines to clear any garbage
+    Serial.println("\n\n========================================");
+    Serial.println("nRF52840 SuperMini - Serial Stream Test");
     Serial.println("========================================");
-    Serial.println("GeekWatch Firmware - Serial Test");
-    Serial.println("========================================");
-    Serial.print("FW: ");
-    Serial.println(FIRMWARE_VERSION);
-    Serial.print("HW: ");
-    Serial.println(HARDWARE_VERSION);
-    Serial.print("Millis: ");
-    Serial.println(millis());
-    Serial.println("\nIf you see this, serial works!");
-    Serial.println("========================================\n");
+    Serial.println("Starting continuous data stream...\n");
 }
 
 void loop() {
-    static unsigned long lastPrint = 0;
-    unsigned long currentTime = millis();
-
-    if (currentTime - lastPrint >= 1000) {
-        Serial.print("[");
-        Serial.print(currentTime / 1000);
-        Serial.println("s] Running");
-        lastPrint = currentTime;
-    }
-
-    delay(10);
+    counter++;
+    
+    Serial.print("[");
+    Serial.print(millis() / 1000);
+    Serial.print("s] Message #");
+    Serial.print(counter);
+    Serial.print(" - millis: ");
+    Serial.println(millis());
+    
+    delay(500);  // Send message every 500ms
 }
