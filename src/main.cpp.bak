@@ -1,0 +1,202 @@
+/**
+ * @file main.cpp
+ * @brief GeekWatch Firmware - Main Application
+ * 
+ * Hardware:
+ * - NRF52840 ProMicro board
+ * - MAX98357A I2S audio amplifier + speaker
+ * - LS011B7DH03 160x68 Sharp Memory Display (niceview clone)
+ * 
+ * Features (v1):
+ * - Display initialization and basic graphics
+ * - I2S audio output (tones, samples)
+ * - Low power mode support
+ */
+
+#include <Arduino.h>
+#include "config.h"
+#include "display.h"
+#include "audio.h"
+
+// Global objects
+GeekWatchDisplay display(DISPLAY_SCK_PIN, DISPLAY_MOSI_PIN, DISPLAY_CS_PIN);
+GeekWatchAudio audio(I2S_SCK_PIN, I2S_LRCK_PIN, I2S_DIN_PIN);
+
+// Timing variables
+unsigned long lastVCOMToggle = 0;
+unsigned long lastDisplayUpdate = 0;
+
+/**
+ * @brief Display splash screen
+ */
+void showSplashScreen() {
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(1);  // Black text
+    display.setCursor(10, 10);
+    display.println("GeekWatch");
+    
+    display.setTextSize(1);
+    display.setCursor(10, 35);
+    display.print("FW: ");
+    display.println(FIRMWARE_VERSION);
+    
+    display.setCursor(10, 50);
+    display.print("HW: ");
+    display.println(HARDWARE_VERSION);
+    
+    display.display();
+}
+
+/**
+ * @brief Display test pattern
+ */
+void showTestPattern() {
+    display.clearDisplay();
+    
+    // Draw border
+    display.drawRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, 1);
+    
+    // Draw crosshairs
+    display.drawLine(DISPLAY_WIDTH/2, 0, DISPLAY_WIDTH/2, DISPLAY_HEIGHT, 1);
+    display.drawLine(0, DISPLAY_HEIGHT/2, DISPLAY_WIDTH, DISPLAY_HEIGHT/2, 1);
+    
+    // Draw circles
+    display.drawCircle(DISPLAY_WIDTH/2, DISPLAY_HEIGHT/2, 10, 1);
+    display.drawCircle(DISPLAY_WIDTH/2, DISPLAY_HEIGHT/2, 20, 1);
+    
+    // Draw text
+    display.setTextSize(1);
+    display.setTextColor(1);
+    display.setCursor(5, 5);
+    display.println("Display Test");
+    
+    display.display();
+}
+
+/**
+ * @brief Display current time (placeholder)
+ */
+void showTime() {
+    display.clearDisplay();
+    
+    // Placeholder time display
+    unsigned long uptime = millis() / 1000;
+    uint16_t seconds = uptime % 60;
+    uint16_t minutes = (uptime / 60) % 60;
+    uint16_t hours = (uptime / 3600) % 24;
+    
+    display.setTextSize(3);
+    display.setTextColor(1);
+    display.setCursor(5, 20);
+    
+    // Display time in HH:MM:SS format
+    if (hours < 10) display.print('0');
+    display.print(hours);
+    display.print(':');
+    if (minutes < 10) display.print('0');
+    display.print(minutes);
+    display.print(':');
+    if (seconds < 10) display.print('0');
+    display.print(seconds);
+    
+    display.setTextSize(1);
+    display.setCursor(10, 55);
+    display.print("Uptime");
+    
+    display.display();
+}
+
+/**
+ * @brief Play startup sound
+ */
+void playStartupSound() {
+    // Play three ascending tones
+    audio.playTone(440, 150);   // A4
+    delay(50);
+    audio.playTone(554, 150);   // C#5
+    delay(50);
+    audio.playTone(659, 200);   // E5
+}
+
+/**
+ * @brief Setup function - runs once at startup
+ */
+void setup() {
+    // Initialize serial for debugging
+    #if DEBUG_SERIAL
+    Serial.begin(SERIAL_BAUD_RATE);
+    delay(1000);  // Wait for serial to initialize
+    Serial.println("\n========================================");
+    Serial.println("GeekWatch Firmware Starting...");
+    Serial.println("========================================");
+    Serial.print("Firmware Version: ");
+    Serial.println(FIRMWARE_VERSION);
+    Serial.print("Hardware Version: ");
+    Serial.println(HARDWARE_VERSION);
+    Serial.println();
+    #endif
+
+    // Initialize display
+    Serial.println("Initializing display...");
+    if (display.begin()) {
+        Serial.println("  Display initialized successfully");
+        showSplashScreen();
+        delay(2000);  // Show splash for 2 seconds
+    } else {
+        Serial.println("  ERROR: Display initialization failed!");
+    }
+
+    // Initialize audio
+    Serial.println("Initializing audio...");
+    if (audio.begin()) {
+        Serial.println("  Audio initialized successfully");
+        Serial.println("  WARNING: I2S hardware not fully configured yet");
+        
+        // Play startup sound (will work once I2S is implemented)
+        // playStartupSound();
+    } else {
+        Serial.println("  ERROR: Audio initialization failed!");
+    }
+
+    // Show test pattern
+    Serial.println("Displaying test pattern...");
+    showTestPattern();
+    delay(2000);
+
+    Serial.println("\nSetup complete! Entering main loop...\n");
+    lastVCOMToggle = millis();
+    lastDisplayUpdate = millis();
+}
+
+/**
+ * @brief Main loop - runs continuously
+ */
+void loop() {
+    unsigned long currentTime = millis();
+
+    // Toggle VCOM periodically (required for Sharp memory displays)
+    // Should happen at ~1Hz or per display refresh
+    if (currentTime - lastVCOMToggle >= 1000) {
+        display.toggleVCOM();
+        lastVCOMToggle = currentTime;
+    }
+
+    // Update display every second
+    if (currentTime - lastDisplayUpdate >= 1000) {
+        showTime();
+        lastDisplayUpdate = currentTime;
+    }
+
+    // TODO: Add watch functionality
+    // - Button handling
+    // - Menu system
+    // - Notifications
+    // - Sensor readings
+    // - BLE connectivity
+    // - Battery monitoring
+    // - Sleep mode
+
+    // Small delay to prevent tight looping
+    delay(10);
+}
