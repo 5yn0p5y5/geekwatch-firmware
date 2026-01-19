@@ -23,6 +23,10 @@
 #define DISPLAY_MOSI_PIN    36  // P1.04 - SPI MOSI (SI)
 // Note: Sharp memory displays don't use MISO
 
+// Some nice!view clones have an enable pin that must be HIGH
+// If your display has a DISP or EN pin, connect it to a GPIO and define it here
+// #define DISPLAY_EN_PIN   10  // Example: P0.10 - Enable pin (set HIGH)
+
 // Display refresh rate (Hz) - Sharp displays need periodic VCOM toggle
 #define DISPLAY_REFRESH_RATE 1
 

@@ -2,7 +2,7 @@
 # Convert firmware.hex to firmware.uf2 for UF2 bootloader
 
 echo "Converting firmware to UF2 format..."
-python3 uf2conv.py .pio/build/geekwatch/firmware.hex -c -f 0xADA52840 -o firmware.uf2
+python3 uf2conv.py .pio/build/nrf52840_supermini/firmware.hex -c -f 0xADA52840 -o firmware.uf2
 
 if [ $? -eq 0 ]; then
     echo "✓ Success! firmware.uf2 created"

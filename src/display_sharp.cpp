@@ -10,38 +10,57 @@ SharpDisplay::SharpDisplay() : vcomState(false) {
 }
 
 bool SharpDisplay::begin() {
-    // Initialize CS pin
+    Serial.println("Display: Initializing 3-wire SPI Sharp Memory Display...");
+    
+    // CS starts LOW, goes HIGH for entire command frame
     pinMode(DISPLAY_CS_PIN, OUTPUT);
     digitalWrite(DISPLAY_CS_PIN, LOW);
+    Serial.print("  CS pin (");
+    Serial.print(DISPLAY_CS_PIN);
+    Serial.println("): LOW (idle)");
     
-    // Initialize SPI
+    // Configure custom SPI pins
+    Serial.print("  SPI pins - SCK: ");
+    Serial.print(DISPLAY_SCK_PIN);
+    Serial.print(", SI: ");
+    Serial.println(DISPLAY_MOSI_PIN);
+    
+    SPI.setPins(0xFF, DISPLAY_SCK_PIN, DISPLAY_MOSI_PIN);
     SPI.begin();
-    SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
+    
+    // Sharp Memory Display: LSB first per datasheet, Mode 0, max 2MHz
+    SPI.beginTransaction(SPISettings(1000000, LSBFIRST, SPI_MODE0));
+    Serial.println("  SPI: 1MHz, LSB-first, Mode 0 (3-wire protocol)");
     
     delay(100);
     
-    // Clear the display
+    // Clear screen
+    Serial.println("  Clearing display...");
     clearDisplay();
+    
+    Serial.println("Display: Ready!");
     
     return true;
 }
 
 void SharpDisplay::clearDisplay() {
+    Serial.println("Clear (all black)");
+    
+    // 3-wire SPI: CS HIGH for entire frame
+    delayMicroseconds(3);
     digitalWrite(DISPLAY_CS_PIN, HIGH);
-    delayMicroseconds(10);
+    delayMicroseconds(3);
     
-    // Send clear command (0x04 | VCOM)
-    uint8_t cmd = 0x04 | (vcomState ? 0x40 : 0x00);
+    // Command: M2=1 (clear 0x04), M1=VCOM (0x02) - LSB-first format
+    uint8_t cmd = 0x04 | (vcomState ? 0x02 : 0x00);
     SPI.transfer(cmd);
-    SPI.transfer(0x00); // Trailer byte
+    SPI.transfer(0x00);  // Trailer
     
-    delayMicroseconds(10);
+    delayMicroseconds(1);
     digitalWrite(DISPLAY_CS_PIN, LOW);
     
-    // Clear framebuffer
-    memset(framebuffer, 0, sizeof(framebuffer));
-    
     vcomState = !vcomState;
+    memset(framebuffer, 0, sizeof(framebuffer));
 }
 
 void SharpDisplay::setPixel(uint8_t x, uint8_t y, bool white) {
@@ -87,23 +106,25 @@ void SharpDisplay::refresh() {
     digitalWrite(DISPLAY_CS_PIN, HIGH);
     delayMicroseconds(10);
     
-    // Send write command
-    uint8_t cmd = 0x80 | (vcomState ? 0x40 : 0x00);
+    // Send write command (LSB-first: 0x01 = write, 0x02 = VCOM)
+    uint8_t cmd = 0x01 | (vcomState ? 0x02 : 0x00);
     SPI.transfer(cmd);
     
-    // Send all lines
+    // Send all lines (1-based addressing)
     for (uint8_t y = 0; y < DISPLAY_HEIGHT; y++) {
-        // Line address (1-based)
-        SPI.transfer(reverseByte(y + 1));
+        // Line address (1-based) - no reversal needed with LSBFIRST
+        SPI.transfer(y + 1);
         
-        // Line data
+        // Line data - no reversal needed with LSBFIRST
         for (int i = 0; i < DISPLAY_WIDTH / 8; i++) {
-            SPI.transfer(reverseByte(framebuffer[y][i]));
+            SPI.transfer(framebuffer[y][i]);
         }
+        
+        // Dummy byte after each line
+        SPI.transfer(0x00);
     }
     
-    // Trailer bytes
-    SPI.transfer(0x00);
+    // Final trailer byte
     SPI.transfer(0x00);
     
     delayMicroseconds(10);
@@ -113,23 +134,75 @@ void SharpDisplay::refresh() {
 }
 
 void SharpDisplay::toggleVCOM() {
+    // VCOM toggle only (no data write)
+    delayMicroseconds(3);
     digitalWrite(DISPLAY_CS_PIN, HIGH);
-    delayMicroseconds(10);
+    delayMicroseconds(3);
     
-    // Send VCOM toggle command
-    uint8_t cmd = 0x00 | (vcomState ? 0x40 : 0x00);
+    // Command: M1=VCOM (0x02), M0=0, M2=0 - LSB-first format
+    uint8_t cmd = vcomState ? 0x02 : 0x00;
     SPI.transfer(cmd);
     SPI.transfer(0x00);
     
-    delayMicroseconds(10);
+    delayMicroseconds(1);
     digitalWrite(DISPLAY_CS_PIN, LOW);
     
     vcomState = !vcomState;
 }
 
 void SharpDisplay::fillScreen(bool white) {
-    memset(framebuffer, white ? 0xFF : 0x00, sizeof(framebuffer));
-    refresh();
+    Serial.print("Filling ");
+    Serial.print(white ? "WHITE" : "BLACK");
+    Serial.print(" - ");
+    Serial.print(DISPLAY_HEIGHT);
+    Serial.println(" lines");
+    
+    // 3-wire SPI: CS HIGH for entire frame
+    delayMicroseconds(3);  // tsSCS min = 3us
+    digitalWrite(DISPLAY_CS_PIN, HIGH);
+    delayMicroseconds(3);  // CS setup before data
+    
+    // Command byte (LSB-first): M0=write (0x01), M1=VCOM (0x02)
+    uint8_t cmd = 0x01 | (vcomState ? 0x02 : 0x00);
+    Serial.print("  CMD byte: 0b");
+    Serial.print(cmd, BIN);
+    Serial.print(" (0x");
+    Serial.print(cmd, HEX);
+    Serial.print(") VCOM=");
+    Serial.print(vcomState ? "1" : "0");
+    Serial.println(")");
+    
+    SPI.transfer(cmd);
+    
+    // Inverted polarity: 0x00 = white (pixel off), 0xFF = black (pixel on)
+    uint8_t pixelByte = white ? 0x00 : 0xFF;
+    Serial.print("  Pixel byte: 0x");
+    Serial.println(pixelByte, HEX);
+    Serial.print("  Sending ");
+    Serial.print(DISPLAY_HEIGHT);
+    Serial.println(" lines...");
+    
+    // Send all lines (1-based addressing)
+    for (uint8_t line = 1; line <= DISPLAY_HEIGHT; line++) {
+        SPI.transfer(line);  // Line address (1-based) - no reversal with LSBFIRST
+        
+        // 160 pixels = 20 bytes per line - no reversal with LSBFIRST
+        for (int i = 0; i < 20; i++) {
+            SPI.transfer(pixelByte);
+        }
+        
+        // Dummy byte after each line
+        SPI.transfer(0x00);
+    }
+    
+    // Trailer (8 dummy bits minimum)
+    SPI.transfer(0x00);
+    
+    Serial.println("  Frame complete, CS going LOW");
+    delayMicroseconds(1);  // thSCS min = 1us  
+    digitalWrite(DISPLAY_CS_PIN, LOW);  // CS low completes frame
+    
+    vcomState = !vcomState;
 }
 
 void SharpDisplay::drawTestPattern() {
