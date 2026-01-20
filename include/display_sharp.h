@@ -26,13 +26,16 @@ public:
     void drawLine(uint8_t y, const uint8_t* lineData);
     void refresh();
     void toggleVCOM();
+    void clearFramebuffer();
     
     // Test patterns
     void fillScreen(bool white);
     void drawTestPattern();
     
-private:
+    // Public framebuffer access
     uint8_t framebuffer[DISPLAY_HEIGHT][DISPLAY_WIDTH / 8];
+    
+private:
     bool vcomState;
     
     void sendCommand(uint8_t cmd);

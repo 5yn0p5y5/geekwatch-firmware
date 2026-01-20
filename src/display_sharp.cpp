@@ -69,6 +69,7 @@ void SharpDisplay::setPixel(uint8_t x, uint8_t y, bool white) {
     uint8_t byteIndex = x / 8;
     uint8_t bitIndex = x % 8;
     
+    // 0xFF = white, 0x00 = black
     if (white) {
         framebuffer[y][byteIndex] |= (1 << bitIndex);
     } else {
@@ -174,8 +175,8 @@ void SharpDisplay::fillScreen(bool white) {
     
     SPI.transfer(cmd);
     
-    // Inverted polarity: 0x00 = white (pixel off), 0xFF = black (pixel on)
-    uint8_t pixelByte = white ? 0x00 : 0xFF;
+    // Correct polarity: 0xFF = white (pixel on), 0x00 = black (pixel off)
+    uint8_t pixelByte = white ? 0xFF : 0x00;
     Serial.print("  Pixel byte: 0x");
     Serial.println(pixelByte, HEX);
     Serial.print("  Sending ");
