@@ -72,20 +72,46 @@ void drawDigit(uint8_t x, uint8_t y, uint8_t digit, uint8_t scale = 1) {
 }
 
 void drawChar(uint8_t x, uint8_t y, char c, uint8_t scale = 1) {
-    // Simple character drawing for A, P, M, etc.
+    // 5x7 font data
     const uint8_t charData[][5] = {
         {0x7E, 0x09, 0x09, 0x09, 0x7E}, // A
-        {0x7F, 0x09, 0x09, 0x09, 0x06}, // P
+        {0x7F, 0x49, 0x49, 0x49, 0x36}, // B
+        {0x3E, 0x41, 0x41, 0x41, 0x22}, // C
+        {0x7F, 0x41, 0x41, 0x22, 0x1C}, // D
+        {0x7F, 0x49, 0x49, 0x49, 0x41}, // E
+        {0x3E, 0x41, 0x49, 0x49, 0x7A}, // G
+        {0x00, 0x41, 0x7F, 0x41, 0x00}, // I
+        {0x7F, 0x40, 0x40, 0x40, 0x40}, // L
         {0x7F, 0x02, 0x04, 0x02, 0x7F}, // M
-        {0x00, 0x41, 0x7F, 0x41, 0x00}, // I (for active indicator)
+        {0x7F, 0x04, 0x08, 0x10, 0x7F}, // N
+        {0x7F, 0x09, 0x09, 0x09, 0x06}, // P
+        {0x46, 0x49, 0x49, 0x49, 0x31}, // S
+        {0x01, 0x01, 0x7F, 0x01, 0x01}, // T
+        {0x3F, 0x40, 0x40, 0x40, 0x3F}, // U
+        {0x02, 0x01, 0x59, 0x09, 0x06}, // ? (question mark)
+        {0x00, 0x00, 0x00, 0x00, 0x00}, // space
     };
     
-    const uint8_t* data;
+    const uint8_t* data = nullptr;
     if (c == 'A') data = charData[0];
-    else if (c == 'P') data = charData[1];
-    else if (c == 'M') data = charData[2];
-    else if (c == 'I') data = charData[3];
+    else if (c == 'B') data = charData[1];
+    else if (c == 'C') data = charData[2];
+    else if (c == 'D') data = charData[3];
+    else if (c == 'E') data = charData[4];
+    else if (c == 'G') data = charData[5];
+    else if (c == 'I') data = charData[6];
+    else if (c == 'L') data = charData[7];
+    else if (c == 'M') data = charData[8];
+    else if (c == 'N') data = charData[9];
+    else if (c == 'P') data = charData[10];
+    else if (c == 'S') data = charData[11];
+    else if (c == 'T') data = charData[12];
+    else if (c == 'U') data = charData[13];
+    else if (c == '?') data = charData[14];
+    else if (c == ' ') data = charData[15];
     else return;
+    
+    if (!data) return;
     
     for (uint8_t col = 0; col < 5; col++) {
         uint8_t colData = data[col];
@@ -279,6 +305,7 @@ void drawDisplay() {
     drawColon(sw1_x + 24, sw_y, scale);
     drawDigit(sw1_x + 28, sw_y, stopwatch1_seconds / 10, scale);
     drawDigit(sw1_x + 40, sw_y, stopwatch1_seconds % 10, scale);
+    drawChar(sw1_x + 54, sw_y, 'G', scale);  // Label
     
     // Stopwatch 2
     uint8_t sw2_x = 20;
@@ -289,17 +316,48 @@ void drawDisplay() {
     drawColon(sw2_x + 24, sw2_y, scale);
     drawDigit(sw2_x + 28, sw2_y, stopwatch2_seconds / 10, scale);
     drawDigit(sw2_x + 40, sw2_y, stopwatch2_seconds % 10, scale);
+    drawChar(sw2_x + 54, sw2_y, 'L', scale);  // Label
     
-    // Draw reset confirmation if active
+    // Draw reset confirmation box if active
     if (showResetConfirm) {
         unsigned long timeLeft = RESET_CONFIRM_MS - (millis() - resetConfirmStartTime);
         if (timeLeft > RESET_CONFIRM_MS) timeLeft = 0;  // Handle overflow
         uint8_t secondsLeft = (timeLeft / 1000) + 1;
         
-        // Draw "RESET?" prompt
-        uint8_t prompt_y = 50;
-        drawChar(50, prompt_y, 'P', 1);  // Using P for prompt indicator
-        drawDigit(65, prompt_y, secondsLeft, 1);
+        // Draw centered box (148x30 pixels, centered on 160x68 screen)
+        uint8_t box_x = 6;
+        uint8_t box_y = 19;
+        uint8_t box_w = 148;
+        uint8_t box_h = 30;
+        
+        // Fill box interior with white
+        for (uint8_t y = box_y + 1; y < box_y + box_h - 1; y++) {
+            for (uint8_t x = box_x + 1; x < box_x + box_w - 1; x++) {
+                display.setPixel(x, y, true);
+            }
+        }
+        
+        // Draw black border
+        for (uint8_t x = box_x; x < box_x + box_w; x++) {
+            display.setPixel(x, box_y, false);  // Top
+            display.setPixel(x, box_y + box_h - 1, false);  // Bottom
+        }
+        for (uint8_t y = box_y; y < box_y + box_h; y++) {
+            display.setPixel(box_x, y, false);  // Left
+            display.setPixel(box_x + box_w - 1, y, false);  // Right
+        }
+        
+        // Draw "SUBMIT DATA AND SLEEP?" on one line
+        const char* message = "SUBMIT DATA AND SLEEP?";
+        uint8_t text_x = box_x + 6;
+        uint8_t text_y = box_y + 6;
+        for (uint8_t i = 0; message[i] != '\0'; i++) {
+            drawChar(text_x + i * 6, text_y, message[i], 1);
+        }
+        
+        // Draw countdown centered below text
+        uint8_t countdown_x = box_x + box_w / 2 - 3;
+        drawDigit(countdown_x, box_y + 18, secondsLeft, 1);
     }
     
     display.refresh();
