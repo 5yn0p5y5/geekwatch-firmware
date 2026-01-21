@@ -27,9 +27,11 @@ unsigned long lastClockUpdate = 0;
 uint16_t stopwatch1_millis = 0;  // milliseconds (0-999)
 uint8_t stopwatch1_seconds = 0;
 uint8_t stopwatch1_minutes = 0;
+uint8_t stopwatch1_hours = 0;
 uint16_t stopwatch2_millis = 0;
 uint8_t stopwatch2_seconds = 0;
 uint8_t stopwatch2_minutes = 0;
+uint8_t stopwatch2_hours = 0;
 
 bool stopwatch1_running = false;
 bool stopwatch2_running = false;
@@ -167,10 +169,15 @@ void updateStopwatches() {
             if (stopwatch1_seconds >= 60) {
                 stopwatch1_seconds = 0;
                 stopwatch1_minutes++;
-                if (stopwatch1_minutes >= 100) {
-                    stopwatch1_minutes = 99;
-                    stopwatch1_seconds = 59;
-                    stopwatch1_millis = 999;
+                if (stopwatch1_minutes >= 60) {
+                    stopwatch1_minutes = 0;
+                    stopwatch1_hours++;
+                    if (stopwatch1_hours >= 100) {
+                        stopwatch1_hours = 99;
+                        stopwatch1_minutes = 59;
+                        stopwatch1_seconds = 59;
+                        stopwatch1_millis = 999;
+                    }
                 }
             }
         }
@@ -184,10 +191,15 @@ void updateStopwatches() {
             if (stopwatch2_seconds >= 60) {
                 stopwatch2_seconds = 0;
                 stopwatch2_minutes++;
-                if (stopwatch2_minutes >= 100) {
-                    stopwatch2_minutes = 99;
-                    stopwatch2_seconds = 59;
-                    stopwatch2_millis = 999;
+                if (stopwatch2_minutes >= 60) {
+                    stopwatch2_minutes = 0;
+                    stopwatch2_hours++;
+                    if (stopwatch2_hours >= 100) {
+                        stopwatch2_hours = 99;
+                        stopwatch2_minutes = 59;
+                        stopwatch2_seconds = 59;
+                        stopwatch2_millis = 999;
+                    }
                 }
             }
         }
@@ -198,9 +210,11 @@ void resetStopwatches() {
     stopwatch1_millis = 0;
     stopwatch1_seconds = 0;
     stopwatch1_minutes = 0;
+    stopwatch1_hours = 0;
     stopwatch2_millis = 0;
     stopwatch2_seconds = 0;
     stopwatch2_minutes = 0;
+    stopwatch2_hours = 0;
     stopwatch1_running = false;
     stopwatch2_running = false;
 }
@@ -298,25 +312,31 @@ void drawDisplay() {
     uint8_t scale = 2;
     
     // Stopwatch 1
-    uint8_t sw1_x = 20;
-    if (stopwatch1_running) drawChar(sw1_x - 8, sw_y, 'I', scale);  // Active indicator
-    drawDigit(sw1_x, sw_y, stopwatch1_minutes / 10, scale);
-    drawDigit(sw1_x + 12, sw_y, stopwatch1_minutes % 10, scale);
+    uint8_t sw1_x = 8;
+    if (stopwatch1_running) drawChar(sw1_x - 6, sw_y, 'I', scale);  // Active indicator
+    drawDigit(sw1_x, sw_y, stopwatch1_hours / 10, scale);
+    drawDigit(sw1_x + 12, sw_y, stopwatch1_hours % 10, scale);
     drawColon(sw1_x + 24, sw_y, scale);
-    drawDigit(sw1_x + 28, sw_y, stopwatch1_seconds / 10, scale);
-    drawDigit(sw1_x + 40, sw_y, stopwatch1_seconds % 10, scale);
-    drawChar(sw1_x + 54, sw_y, 'G', scale);  // Label
+    drawDigit(sw1_x + 28, sw_y, stopwatch1_minutes / 10, scale);
+    drawDigit(sw1_x + 40, sw_y, stopwatch1_minutes % 10, scale);
+    drawColon(sw1_x + 52, sw_y, scale);
+    drawDigit(sw1_x + 56, sw_y, stopwatch1_seconds / 10, scale);
+    drawDigit(sw1_x + 68, sw_y, stopwatch1_seconds % 10, scale);
+    drawChar(sw1_x + 82, sw_y, 'G', scale);  // Label
     
     // Stopwatch 2
-    uint8_t sw2_x = 20;
+    uint8_t sw2_x = 8;
     uint8_t sw2_y = sw_y + 18;
-    if (stopwatch2_running) drawChar(sw2_x - 8, sw2_y, 'I', scale);  // Active indicator
-    drawDigit(sw2_x, sw2_y, stopwatch2_minutes / 10, scale);
-    drawDigit(sw2_x + 12, sw2_y, stopwatch2_minutes % 10, scale);
+    if (stopwatch2_running) drawChar(sw2_x - 6, sw2_y, 'I', scale);  // Active indicator
+    drawDigit(sw2_x, sw2_y, stopwatch2_hours / 10, scale);
+    drawDigit(sw2_x + 12, sw2_y, stopwatch2_hours % 10, scale);
     drawColon(sw2_x + 24, sw2_y, scale);
-    drawDigit(sw2_x + 28, sw2_y, stopwatch2_seconds / 10, scale);
-    drawDigit(sw2_x + 40, sw2_y, stopwatch2_seconds % 10, scale);
-    drawChar(sw2_x + 54, sw2_y, 'L', scale);  // Label
+    drawDigit(sw2_x + 28, sw2_y, stopwatch2_minutes / 10, scale);
+    drawDigit(sw2_x + 40, sw2_y, stopwatch2_minutes % 10, scale);
+    drawColon(sw2_x + 52, sw2_y, scale);
+    drawDigit(sw2_x + 56, sw2_y, stopwatch2_seconds / 10, scale);
+    drawDigit(sw2_x + 68, sw2_y, stopwatch2_seconds % 10, scale);
+    drawChar(sw2_x + 82, sw2_y, 'L', scale);  // Label
     
     // Draw reset confirmation box if active
     if (showResetConfirm) {
