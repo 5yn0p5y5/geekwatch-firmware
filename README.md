@@ -1,6 +1,6 @@
 # geekwatch Firmware
 
-geekwatch is a device and a service that help you stay productive!
+geekwatch is a device and a service that help you stay productive! The hardware keeps track of how long you spend working and geeking, bothers you verbally when you are geeking for too long, and connects via bluetooth to a computer or smartphone to log your data. Logged data is then available on the soon-to-exist geek.watch web app where you can compete with your friends and maximize productivity.
 
 ## Hardware (v1)
 
@@ -8,6 +8,16 @@ geekwatch is a device and a service that help you stay productive!
 - **Display**: LS011B7DH03 160x68 Sharp Memory Display (SPI)
 - **Audio**: MAX98357A I2S audio amplifier + speaker
 - **Power**: USB-C charging, LiPo battery (TBD)
+
+![Alt text](docs/prototype.webp)
+v1 hardware currently
+
+### To Do
+- Audio reminders
+- Battery monitoring and power management
+- BLE connectivity
+- Data logging to the geekwatch web app
+- Improved font face
 
 ## Development Setup
 
@@ -86,16 +96,6 @@ Edit [include/config.h](include/config.h) to modify pin assignments.
   - Reset confirmation with 3-second timeout
   - Active stopwatch indicator
   - VCOM toggle for Sharp display
-
-### To Do
-- Audio implementation (I2S hardware for MAX98357A)
-- Battery monitoring and power management
-- BLE connectivity and notifications
-- Menu system for settings
-- Low power/sleep modes
-- Real-time clock integration (persistent time keeping)
-- Additional watch faces and modes
-- Auto logging to the geekwatch web service
 
 ## Flashing Instructions
 
