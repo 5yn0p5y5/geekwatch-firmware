@@ -10,6 +10,7 @@ geekwatch is a device and a service that help you stay productive! The hardware 
 - **Power**: USB-C charging, LiPo battery (TBD)
 
 ![Alt text](docs/prototype.webp)
+
 v1 hardware currently
 
 ### To Do
