@@ -40,13 +40,17 @@ geekwatch-firmware/
 │   └── nrf52840_promicro.json    # Custom board definition
 ├── include/
 │   ├── config.h                   # Hardware configuration
-│   ├── display.h                  # Display driver header
+│   ├── display_sharp.h            # Sharp Memory Display driver header
+│   ├── display.h                  # Display driver header (legacy)
+│   ├── display_simple.h           # Simple display header (legacy)
 │   └── audio.h                    # Audio driver header
 ├── src/
-│   ├── main.cpp                   # Main application
-│   ├── display.cpp                # Display driver implementation
-│   └── audio.cpp                  # Audio driver implementation
+│   ├── main.cpp                   # Main application (stopwatch mode)
+│   └── display_sharp.cpp          # Sharp Memory Display driver
 ├── platformio.ini                 # PlatformIO configuration
+├── test_serial.py                 # Serial testing utility
+├── convert_uf2.sh                 # UF2 conversion script
+├── uf2conv.py                     # UF2 converter
 └── README.md
 ```
 
@@ -68,34 +72,30 @@ Edit [include/config.h](include/config.h) to modify pin assignments.
 
 ## Current Status
 
-### ✅ Implemented
+### Implemented
 - PlatformIO project structure
 - Custom nRF52840 ProMicro board definition
-- Display driver scaffold (SPI communication)
-- Audio driver scaffold (I2S interface)
-- Basic firmware application with:
-  - Display initialization
-  - Splash screen
-  - Test pattern
-  - Time display (uptime counter)
+- Sharp Memory Display (LS011B7DH03) driver with full SPI communication
+- Pixel-level drawing and framebuffer management
+- Custom 5x7 bitmap font for digits and characters
+- Complete stopwatch application with:
+  - Dual independent stopwatches (hours:minutes:seconds)
+  - Real-time clock display (HH:MM:SS AM/PM)
+  - Button control with debouncing and long-press detection
+  - Stopwatch switching via button press
+  - Reset confirmation with 3-second timeout
+  - Active stopwatch indicator
   - VCOM toggle for Sharp display
 
-### ⚠️ Partial/Needs Work
-- **I2S Audio**: Hardware configuration requires Nordic SDK register access or native I2S library
-  - Framework is in place, but actual I2S peripheral setup needs implementation
-  - Options: Direct register access, Nordic SDK integration, or Arduino I2S library
-- **Display Driver**: Based on Sharp Memory Display protocol, may need tuning for LS011B7DH03 specifics
-
-### 🔲 To Do
-- Complete I2S hardware initialization
-- Test audio playback
-- Implement button handling
-- Add menu system
-- Battery monitoring
-- BLE connectivity
+### To Do
+- Audio implementation (I2S hardware for MAX98357A)
+- Battery monitoring and power management
+- BLE connectivity and notifications
+- Menu system for settings
 - Low power/sleep modes
-- Real-time clock integration
-- Notification system
+- Real-time clock integration (persistent time keeping)
+- Additional watch faces and modes
+- Auto logging to the geekwatch web service
 
 ## Flashing Instructions
 
@@ -104,7 +104,7 @@ Edit [include/config.h](include/config.h) to modify pin assignments.
 1. **Enter bootloader mode**:
    - Double-tap the reset button on the nRF52840 ProMicro
    - Board LED should pulse, indicating bootloader mode
-   - A USB drive named "PROMICROBOOT" (or similar) will appear
+   - A USB drive named "NICENANO" will appear as a storage device
 
 2. **Build firmware**:
    ```bash
@@ -112,11 +112,7 @@ Edit [include/config.h](include/config.h) to modify pin assignments.
    ```
 
 3. **Flash to device**:
-   ```bash
-   pio run --target upload
-   ```
-   
-   Or manually:
+   - Run uf2conv.py
    - Locate the compiled UF2 file in `.pio/build/geekwatch/firmware.uf2`
    - Drag and drop onto the USB drive
    - Board will automatically reset and run new firmware
@@ -131,39 +127,22 @@ Default baud rate: 115200
 
 ## Notes
 
-### I2S Implementation
+### Button Controls
 
-The current audio driver is a scaffold. For full I2S functionality, you have three options:
+- **Short Press**: Switch between stopwatches or start first stopwatch
+- **Long Press** (>1 second): Show reset confirmation dialog
+- **Confirm Reset**: Press button within 3 seconds during confirmation
+- Button is configured on P1.11 (pin 43) with internal pull-up
 
-1. **Direct Register Access** (Most control):
-   - Use nRF52840 registers directly (`NRF_I2S->PSEL.SCK`, etc.)
-   - Requires understanding Nordic register map
-   - Best performance and flexibility
+### Display Details
 
-2. **Nordic SDK Integration** (Recommended for production):
-   - Integrate Nordic nRF5 SDK I2S driver
-   - Well-tested, full-featured
-   - Adds complexity to build system
-
-3. **Arduino I2S Library** (Easiest):
-   - Look for `Adafruit_ZeroI2S` or similar
-   - May need porting from SAMD to nRF52
-   - Limited functionality but simpler
-
-### Display Protocol
-
-The LS011B7DH03 uses the Sharp Memory Display protocol. The current driver implementation:
-- Assumes standard Sharp protocol
-- May need adjustments based on specific niceview clone behavior
-- Test with actual hardware and adjust timing if needed
+The Sharp Memory Display (LS011B7DH03) driver includes:
+- SPI Mode 0 communication at up to 2MHz
+- 160×68 pixel monochrome display
+- Framebuffer-based rendering
+- Custom 5×7 bitmap font for efficient character rendering
+- VCOM toggle for display refresh (required by Sharp protocol)
 
 ## License
 
 See [LICENSE](LICENSE) file for details.
-
-## Version History
-
-- **v1.0.0** (2026-01-18): Initial scaffold implementation
-  - Basic display and audio drivers
-  - PlatformIO project setup
-  - UF2 bootloader workflow
