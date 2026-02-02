@@ -10,11 +10,14 @@ SharpDisplay::SharpDisplay() : vcomState(false) {
 }
 
 bool SharpDisplay::begin() {
+    #if DEBUG_SERIAL
     Serial.println("Display: Initializing 3-wire SPI Sharp Memory Display...");
+    #endif
     
     // CS starts LOW, goes HIGH for entire command frame
     pinMode(DISPLAY_CS_PIN, OUTPUT);
     digitalWrite(DISPLAY_CS_PIN, LOW);
+    #if DEBUG_SERIAL
     Serial.print("  CS pin (");
     Serial.print(DISPLAY_CS_PIN);
     Serial.println("): LOW (idle)");
@@ -24,27 +27,43 @@ bool SharpDisplay::begin() {
     Serial.print(DISPLAY_SCK_PIN);
     Serial.print(", SI: ");
     Serial.println(DISPLAY_MOSI_PIN);
+    #endif
     
     SPI.setPins(0xFF, DISPLAY_SCK_PIN, DISPLAY_MOSI_PIN);
     SPI.begin();
     
     // Sharp Memory Display: LSB first per datasheet, Mode 0, max 2MHz
-    SPI.beginTransaction(SPISettings(1000000, LSBFIRST, SPI_MODE0));
-    Serial.println("  SPI: 1MHz, LSB-first, Mode 0 (3-wire protocol)");
+    // Use 500kHz for lower power consumption
+    SPI.beginTransaction(SPISettings(500000, LSBFIRST, SPI_MODE0));
+    #if DEBUG_SERIAL
+    Serial.println("  SPI: 500kHz, LSB-first, Mode 0 (3-wire protocol)");
+    #endif
     
     delay(100);
     
     // Clear screen
+    #if DEBUG_SERIAL
     Serial.println("  Clearing display...");
+    #endif
     clearDisplay();
     
+    // End transaction to save power when not in use
+    SPI.endTransaction();
+    
+    #if DEBUG_SERIAL
     Serial.println("Display: Ready!");
+    #endif
     
     return true;
 }
 
 void SharpDisplay::clearDisplay() {
+    #if DEBUG_SERIAL
     Serial.println("Clear (all black)");
+    #endif
+    
+    // Start SPI transaction
+    SPI.beginTransaction(SPISettings(500000, LSBFIRST, SPI_MODE0));
     
     // 3-wire SPI: CS HIGH for entire frame
     delayMicroseconds(3);
@@ -58,6 +77,9 @@ void SharpDisplay::clearDisplay() {
     
     delayMicroseconds(1);
     digitalWrite(DISPLAY_CS_PIN, LOW);
+    
+    // End SPI transaction to save power
+    SPI.endTransaction();
     
     vcomState = !vcomState;
     memset(framebuffer, 0, sizeof(framebuffer));
@@ -104,6 +126,9 @@ void SharpDisplay::drawLine(uint8_t y, const uint8_t* lineData) {
 }
 
 void SharpDisplay::refresh() {
+    // Start SPI transaction only when needed
+    SPI.beginTransaction(SPISettings(500000, LSBFIRST, SPI_MODE0));
+    
     digitalWrite(DISPLAY_CS_PIN, HIGH);
     delayMicroseconds(10);
     
@@ -131,11 +156,16 @@ void SharpDisplay::refresh() {
     delayMicroseconds(10);
     digitalWrite(DISPLAY_CS_PIN, LOW);
     
+    // End SPI transaction to save power
+    SPI.endTransaction();
+    
     vcomState = !vcomState;
 }
 
 void SharpDisplay::toggleVCOM() {
     // VCOM toggle only (no data write)
+    SPI.beginTransaction(SPISettings(500000, LSBFIRST, SPI_MODE0));
+    
     delayMicroseconds(3);
     digitalWrite(DISPLAY_CS_PIN, HIGH);
     delayMicroseconds(3);
@@ -148,15 +178,21 @@ void SharpDisplay::toggleVCOM() {
     delayMicroseconds(1);
     digitalWrite(DISPLAY_CS_PIN, LOW);
     
+    SPI.endTransaction();
+    
     vcomState = !vcomState;
 }
 
 void SharpDisplay::fillScreen(bool white) {
+    #if DEBUG_SERIAL
     Serial.print("Filling ");
     Serial.print(white ? "WHITE" : "BLACK");
     Serial.print(" - ");
     Serial.print(DISPLAY_HEIGHT);
     Serial.println(" lines");
+    #endif
+    
+    SPI.beginTransaction(SPISettings(500000, LSBFIRST, SPI_MODE0));
     
     // 3-wire SPI: CS HIGH for entire frame
     delayMicroseconds(3);  // tsSCS min = 3us
@@ -165,6 +201,7 @@ void SharpDisplay::fillScreen(bool white) {
     
     // Command byte (LSB-first): M0=write (0x01), M1=VCOM (0x02)
     uint8_t cmd = 0x01 | (vcomState ? 0x02 : 0x00);
+    #if DEBUG_SERIAL
     Serial.print("  CMD byte: 0b");
     Serial.print(cmd, BIN);
     Serial.print(" (0x");
@@ -172,16 +209,19 @@ void SharpDisplay::fillScreen(bool white) {
     Serial.print(") VCOM=");
     Serial.print(vcomState ? "1" : "0");
     Serial.println(")");
+    #endif
     
     SPI.transfer(cmd);
     
     // Correct polarity: 0xFF = white (pixel on), 0x00 = black (pixel off)
     uint8_t pixelByte = white ? 0xFF : 0x00;
+    #if DEBUG_SERIAL
     Serial.print("  Pixel byte: 0x");
     Serial.println(pixelByte, HEX);
     Serial.print("  Sending ");
     Serial.print(DISPLAY_HEIGHT);
     Serial.println(" lines...");
+    #endif
     
     // Send all lines (1-based addressing)
     for (uint8_t line = 1; line <= DISPLAY_HEIGHT; line++) {
@@ -199,9 +239,13 @@ void SharpDisplay::fillScreen(bool white) {
     // Trailer (8 dummy bits minimum)
     SPI.transfer(0x00);
     
+    #if DEBUG_SERIAL
     Serial.println("  Frame complete, CS going LOW");
+    #endif
     delayMicroseconds(1);  // thSCS min = 1us  
     digitalWrite(DISPLAY_CS_PIN, LOW);  // CS low completes frame
+    
+    SPI.endTransaction();
     
     vcomState = !vcomState;
 }

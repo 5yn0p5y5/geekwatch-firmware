@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include <Adafruit_TinyUSB.h>
 #include "display_sharp.h"
+#include "config.h"
+#include <nrf_rtc.h>
+#include <nrf_power.h>
 
 SharpDisplay display;
 
@@ -9,12 +12,19 @@ SharpDisplay display;
 #define LONG_PRESS_MS 1000
 #define DEBOUNCE_MS 50
 
+// LED configuration (to disable status LED)
+#define STATUS_LED_PIN 15  // P0.15 - Red LED on SuperMini board
+
 // Button state
+volatile bool buttonInterruptFlag = false;
 bool buttonPressed = false;
 unsigned long buttonPressTime = 0;
 bool longPressHandled = false;
 unsigned long lastDebounceTime = 0;
 bool lastButtonState = HIGH;
+
+// Display state
+bool displayDirty = true;  // Flag to track if display needs update
 
 // Clock state
 uint8_t hours = 11;
@@ -140,6 +150,7 @@ void drawColon(uint8_t x, uint8_t y, uint8_t scale = 1) {
 
 void updateClock() {
     seconds++;
+    displayDirty = true;  // Clock changed, need to redraw
     if (seconds >= 60) {
         seconds = 0;
         minutes++;
@@ -166,6 +177,7 @@ void updateStopwatches() {
         while (stopwatch1_millis >= 1000) {
             stopwatch1_millis -= 1000;
             stopwatch1_seconds++;
+            displayDirty = true;  // Stopwatch changed
             if (stopwatch1_seconds >= 60) {
                 stopwatch1_seconds = 0;
                 stopwatch1_minutes++;
@@ -188,6 +200,7 @@ void updateStopwatches() {
         while (stopwatch2_millis >= 1000) {
             stopwatch2_millis -= 1000;
             stopwatch2_seconds++;
+            displayDirty = true;  // Stopwatch changed
             if (stopwatch2_seconds >= 60) {
                 stopwatch2_seconds = 0;
                 stopwatch2_minutes++;
@@ -217,6 +230,12 @@ void resetStopwatches() {
     stopwatch2_hours = 0;
     stopwatch1_running = false;
     stopwatch2_running = false;
+    displayDirty = true;  // Display needs update
+}
+
+// Button interrupt handler
+void buttonISR() {
+    buttonInterruptFlag = true;
 }
 
 void handleButtonPress() {
@@ -224,33 +243,49 @@ void handleButtonPress() {
         // Button pressed during reset confirmation - do the reset
         resetStopwatches();
         showResetConfirm = false;
+        #if DEBUG_SERIAL
         Serial.println("Stopwatches reset!");
+        #endif
     } else {
         // Normal press - toggle between stopwatches
         if (!stopwatch1_running && !stopwatch2_running) {
             // First press - start stopwatch 1
             stopwatch1_running = true;
+            #if DEBUG_SERIAL
             Serial.println("Stopwatch 1 started");
+            #endif
         } else {
             // Toggle between stopwatches
             bool temp = stopwatch1_running;
             stopwatch1_running = stopwatch2_running;
             stopwatch2_running = temp;
+            #if DEBUG_SERIAL
             Serial.print("Switched to stopwatch ");
             Serial.println(stopwatch1_running ? "1" : "2");
+            #endif
         }
     }
+    displayDirty = true;  // Button action requires display update
 }
 
 void handleLongPress() {
     if (!showResetConfirm) {
         showResetConfirm = true;
         resetConfirmStartTime = millis();
+        displayDirty = true;  // Show confirmation dialog
+        #if DEBUG_SERIAL
         Serial.println("Reset confirmation - press button within 3 seconds to confirm");
+        #endif
     }
 }
 
 void updateButton() {
+    // Only process if interrupt flag is set or button is currently pressed
+    if (!buttonInterruptFlag && buttonPressed == HIGH) {
+        return;
+    }
+    buttonInterruptFlag = false;
+    
     bool reading = digitalRead(BUTTON_PIN);
     
     // Debounce
@@ -381,31 +416,54 @@ void drawDisplay() {
     }
     
     display.refresh();
+    displayDirty = false;  // Display is now up to date
 }
 
 void setup() {
+    #if DEBUG_SERIAL
     Serial.begin(115200);
     delay(2000);
     
     Serial.println("\n========================================");
-    Serial.println("GeekWatch - Stopwatch Mode");
+    Serial.println("GeekWatch - Stopwatch Mode (Low Power)");
     Serial.println("========================================");
+    #endif
     
-    // Initialize button
+    // Turn off the red status LED to save power
+    pinMode(STATUS_LED_PIN, OUTPUT);
+    digitalWrite(STATUS_LED_PIN, LOW);  // LOW = off for active-high LED
+    
+    // Initialize button with interrupt
     pinMode(BUTTON_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, CHANGE);
     
+    #if DEBUG_SERIAL
     Serial.print("Initializing display... ");
+    #endif
     if (display.begin()) {
+        #if DEBUG_SERIAL
         Serial.println("SUCCESS");
+        #endif
     } else {
+        #if DEBUG_SERIAL
         Serial.println("FAILED");
+        #endif
         while(1) delay(100);
     }
     
-    Serial.println("Button on P1.11 (pin 43)");
+    #if DEBUG_SERIAL
+    Serial.println("Button on P1.11 (pin 43) - interrupt driven");
     Serial.println("Press: Switch stopwatch");
     Serial.println("Long press: Reset confirm");
+    Serial.println("Power optimizations: ENABLED");
     Serial.println("========================================\n");
+    #endif
+    
+    // Configure low power mode
+    #if ENABLE_LOW_POWER_MODE
+    // Enable DC/DC converter for better power efficiency
+    sd_power_dcdc_mode_set(NRF_POWER_DCDC_ENABLE);
+    #endif
     
     lastStopwatchUpdate = millis();
     drawDisplay();
@@ -414,13 +472,16 @@ void setup() {
 void loop() {
     unsigned long now = millis();
     
-    // Update button state
+    // Update button state (only when interrupt fires or button held)
     updateButton();
     
     // Check reset confirmation timeout
     if (showResetConfirm && (now - resetConfirmStartTime >= RESET_CONFIRM_MS)) {
         showResetConfirm = false;
+        displayDirty = true;
+        #if DEBUG_SERIAL
         Serial.println("Reset cancelled");
+        #endif
     }
     
     // Update clock every second
@@ -429,15 +490,68 @@ void loop() {
         updateClock();
     }
     
-    // Update stopwatches every 10ms for smooth updates
-    if (now - lastStopwatchUpdate >= 10) {
-        updateStopwatches();
+    // Update stopwatches - only update every second (not 10ms) to save power
+    // The milliseconds aren't displayed anyway
+    if (now - lastStopwatchUpdate >= 1000) {
+        unsigned long elapsed = now - lastStopwatchUpdate;
+        lastStopwatchUpdate = now;
+        
+        // Simplified update - just track seconds
+        if (stopwatch1_running) {
+            stopwatch1_seconds++;
+            displayDirty = true;
+            if (stopwatch1_seconds >= 60) {
+                stopwatch1_seconds = 0;
+                stopwatch1_minutes++;
+                if (stopwatch1_minutes >= 60) {
+                    stopwatch1_minutes = 0;
+                    stopwatch1_hours++;
+                    if (stopwatch1_hours >= 100) {
+                        stopwatch1_hours = 99;
+                        stopwatch1_minutes = 59;
+                        stopwatch1_seconds = 59;
+                    }
+                }
+            }
+        }
+        
+        if (stopwatch2_running) {
+            stopwatch2_seconds++;
+            displayDirty = true;
+            if (stopwatch2_seconds >= 60) {
+                stopwatch2_seconds = 0;
+                stopwatch2_minutes++;
+                if (stopwatch2_minutes >= 60) {
+                    stopwatch2_minutes = 0;
+                    stopwatch2_hours++;
+                    if (stopwatch2_hours >= 100) {
+                        stopwatch2_hours = 99;
+                        stopwatch2_minutes = 59;
+                        stopwatch2_seconds = 59;
+                    }
+                }
+            }
+        }
     }
     
-    // Redraw display every 100ms
-    static unsigned long lastDraw = 0;
-    if (now - lastDraw >= 100) {
-        lastDraw = now;
+    // Only redraw display when something changed
+    if (displayDirty) {
         drawDisplay();
     }
+    
+    // Sleep until next event (power optimization)
+    #if ENABLE_LOW_POWER_MODE
+    // Calculate time until next wakeup needed
+    unsigned long nextUpdate = 1000;  // Default: wake every second for clock
+    
+    // If nothing is running and no confirmation dialog, can sleep longer
+    if (!stopwatch1_running && !stopwatch2_running && !showResetConfirm) {
+        nextUpdate = 1000;  // Just update clock every second
+    }
+    
+    // Short delay for debouncing and power savings
+    delay(50);  // 50ms sleep between checks
+    #else
+    delay(10);  // Minimal delay in non-low-power mode
+    #endif
 }

@@ -46,9 +46,12 @@
 // ========== Power Management ==========
 #define ENABLE_LOW_POWER_MODE  true
 #define SLEEP_TIMEOUT_MS       30000  // 30 seconds
+#define DISPLAY_UPDATE_MS      1000   // Update display every 1 second when running
+#define DISPLAY_IDLE_MS        5000   // Reduce updates when idle (stopwatches paused)
 
 // ========== Debug Configuration ==========
-#define DEBUG_SERIAL        true
+// Set to false for production to save significant power
+#define DEBUG_SERIAL        false
 #define SERIAL_BAUD_RATE    115200
 
 // ========== Firmware Version ==========
