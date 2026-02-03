@@ -9,9 +9,9 @@ geekwatch is a device and a service that help you stay productive! The hardware 
 - **Audio**: MAX98357A I2S audio amplifier + speaker
 - **Power**: USB-C charging, LiPo battery (TBD)
 
-![Alt text](docs/prototype.webp)
+![Alt text](docs/prototypev2.webp)
 
-v1 hardware currently
+v2 hardware currently
 
 ### To Do
 - Audio reminders
