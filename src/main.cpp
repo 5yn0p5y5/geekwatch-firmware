@@ -431,7 +431,7 @@ void setup() {
     
     // Turn off the red status LED to save power
     pinMode(STATUS_LED_PIN, OUTPUT);
-    digitalWrite(STATUS_LED_PIN, LOW);  // LOW = off for active-high LED
+    digitalWrite(STATUS_LED_PIN, HIGH);  // HIGH = off for active-low LED
     
     // Initialize button with interrupt
     pinMode(BUTTON_PIN, INPUT_PULLUP);
