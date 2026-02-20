@@ -9,9 +9,9 @@ geekwatch is a device and a service that help you stay productive! The hardware 
 - **Audio**: MAX98357A I2S audio amplifier + speaker
 - **Power**: USB-C charging, LiPo battery (TBD)
 
-![Alt text](docs/prototypev2.webp)
+![Alt text](docs/prototypev3.webp)
 
-v2 hardware currently
+v2 hardware currently, ain't pretty but it works.
 
 ### To Do
 - Audio reminders
@@ -33,11 +33,10 @@ v2 hardware currently
 # Build the project
 pio run
 
-# Build and upload via UF2 bootloader
+# Run either the windows converson script or the linux one (.ps1 or .sh respectively)
 # 1. Double-tap reset button on nRF52840 ProMicro to enter bootloader mode
-# 2. Board will appear as USB drive (e.g., "PROMICROBOOT")
-# 3. Run upload command:
-pio run --target upload
+# 2. Board will appear as USB drive (e.g., "NICENANO")
+# 3. Copy firmware.uf2 onto drive
 
 # Monitor serial output
 pio device monitor
@@ -97,32 +96,6 @@ Edit [include/config.h](include/config.h) to modify pin assignments.
   - Reset confirmation with 3-second timeout
   - Active stopwatch indicator
   - VCOM toggle for Sharp display
-
-## Flashing Instructions
-
-### Via UF2 Bootloader (Recommended)
-
-1. **Enter bootloader mode**:
-   - Double-tap the reset button on the nRF52840 ProMicro
-   - Board LED should pulse, indicating bootloader mode
-   - A USB drive named "NICENANO" will appear as a storage device
-
-2. **Build firmware**:
-   ```bash
-   pio run
-   ```
-
-3. **Flash to device**:
-   - Run uf2conv.py
-   - Locate the compiled UF2 file in `.pio/build/geekwatch/firmware.uf2`
-   - Drag and drop onto the USB drive
-   - Board will automatically reset and run new firmware
-
-### Serial Monitor
-
-```bash
-pio device monitor
-```
 
 Default baud rate: 115200
 
