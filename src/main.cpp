@@ -17,7 +17,7 @@ SharpDisplay display;
 
 // Button state
 volatile bool buttonInterruptFlag = false;
-bool buttonPressed = false;
+bool buttonPressed = HIGH;
 unsigned long buttonPressTime = 0;
 bool longPressHandled = false;
 unsigned long lastDebounceTime = 0;
@@ -280,8 +280,8 @@ void handleLongPress() {
 }
 
 void updateButton() {
-    // Only process if interrupt flag is set or button is currently pressed
-    if (!buttonInterruptFlag && buttonPressed == HIGH) {
+    // Only process if interrupt flag is set, button is currently pressed, or debounce is in progress
+    if (!buttonInterruptFlag && buttonPressed == HIGH && lastButtonState == HIGH) {
         return;
     }
     buttonInterruptFlag = false;
@@ -431,7 +431,7 @@ void setup() {
     
     // Turn off the red status LED to save power
     pinMode(STATUS_LED_PIN, OUTPUT);
-    digitalWrite(STATUS_LED_PIN, HIGH);  // HIGH = off for active-low LED
+    digitalWrite(STATUS_LED_PIN, LOW);  // LOW = off for active-high LED
     
     // Initialize button with interrupt
     pinMode(BUTTON_PIN, INPUT_PULLUP);
